@@ -96,7 +96,9 @@ REGLAS = [
     ("R6", ["metro_lento", "caminata_lenta"], "salir_temprano",
      "Hora pico + lluvia: se recomienda salir 15 minutos antes"),
 
-     # =============================================================================
+]
+
+# =============================================================================
 # 3. MOTOR DE INFERENCIA (encadenamiento hacia adelante)
 # Revisa las reglas una y otra vez: si TODAS las condiciones de una regla
 # están en los hechos, agrega su conclusión como un hecho nuevo.
@@ -185,6 +187,136 @@ def a_estrella(origen, destino, hechos):
             heapq.heappush(abiertos, (nuevo_g + h(siguiente), nuevo_g, siguiente,
                                       nueva_linea, camino + [(siguiente, nueva_linea)]))
     return None, 0
-]
+
+# =============================================================================
+# 5. PROGRAMA PRINCIPAL (interactivo)
+# =============================================================================
+def main():
+    activar_colores()
+    estaciones = list(LINEAS_DE)
+    titulo()
+    while True:
+        # 1) El usuario da los datos del viaje
+        mostrar_estaciones(estaciones)
+        origen = elegir("Estación de ORIGEN (número): ", estaciones)
+        destino = elegir("Estación de DESTINO (número): ", estaciones)
+        print("  1. Normal   2. Turista   3. Movilidad reducida   4. Pocos transbordos")
+        perfil = elegir("Perfil del viajero (número): ",
+                        ["normal", "turista", "movilidad_reducida", "pocos_transbordos"])
+
+        # 2) Las respuestas se convierten en HECHOS
+        hechos = [perfil]
+        if input("¿Es hora pico? (s/n): ").lower() == "s":
+            hechos.append("hora_pico")
+        if input("¿Está lloviendo? (s/n): ").lower() == "s":
+            hechos.append("lluvia")
+
+        # 3) El motor de inferencia deduce nuevos hechos con las reglas
+        hechos, aplicadas = inferir(hechos)
+
+        # 4) A* busca la mejor ruta usando esos hechos
+        camino, minutos = a_estrella(origen, destino, hechos)
+
+        # 5) Mostrar resultados
+        mostrar_reglas(aplicadas)
+        mostrar_ruta(origen, destino, camino, minutos)
+        if "recomendar_sitios" in hechos:
+            mostrar_recomendaciones(camino)
+        if "salir_temprano" in hechos:
+            print("\n   ⚠  Hora pico con lluvia: salga 15 minutos antes.")
+
+        if input("\n¿Desea buscar otra ruta? (s/n): ").lower() != "s":
+            print("¡Buen viaje!")
+            break
 
 
+# =============================================================================
+# 6. PRESENTACIÓN EN CONSOLA
+# Este bloque NO hace parte del sistema inteligente: solo organiza la
+# información en pantalla y le da colores a la consola para que sea más clara.
+# =============================================================================
+AZUL, AMARILLO, GRIS, VERDE = "\033[94m", "\033[93m", "\033[37m", "\033[92m"
+NEGRITA, FIN = "\033[1m", "\033[0m"                    # FIN = volver al color normal
+COLOR_LINEA = {"A": AZUL, "B": AMARILLO, "C": GRIS}
+
+
+def activar_colores():
+    """En Windows hay que 'despertar' la consola para que acepte colores."""
+    import os
+    os.system("")
+
+
+def titulo():
+    print(f"\n{NEGRITA}{'=' * 58}")
+    print("   METRO EXPERTO · Mejor ruta en el Metro de Medellín")
+    print(f"{'=' * 58}{FIN}")
+
+
+def mostrar_estaciones(estaciones):
+    """Lista las estaciones numeradas, separadas por línea y con su color."""
+    for linea, nombre in [("A", "LÍNEA A · de norte a sur"), ("B", "LÍNEA B · del centro al occidente")]:
+        print(f"\n  {COLOR_LINEA[linea]}{NEGRITA}■ {nombre}{FIN}")
+        for i, e in enumerate(estaciones, 1):
+            if min(LINEAS_DE[e]) == linea:              # San Antonio ({A, B}) se muestra en la A
+                marca = " (transbordo A↔B)" if e == "San Antonio" else ""
+                print(f"     {i:2}. {COLOR_LINEA[linea]}{e}{marca}{FIN}")
+    print()
+
+
+def elegir(texto, opciones):
+    """Pide un número hasta que sea válido y devuelve la opción elegida."""
+    while True:
+        r = input(texto)
+        if r.isdigit() and 1 <= int(r) <= len(opciones):
+            return opciones[int(r) - 1]
+        print("  Número no válido, intente de nuevo")
+
+
+def mostrar_reglas(aplicadas):
+    print(f"\n{NEGRITA}🧠 ¿Qué tuvo en cuenta el sistema? (reglas que se cumplieron){FIN}")
+    for nombre, explicacion in aplicadas:
+        print(f"   ✔ {nombre}: {explicacion}")
+    if not aplicadas:
+        print("   Ninguna condición especial: viaje normal.")
+
+
+def mostrar_ruta(origen, destino, camino, minutos):
+    """Convierte el camino en instrucciones de viaje, como las daría una persona."""
+    print(f"\n{NEGRITA}🗺  Mejor ruta de {origen} a {destino}:{FIN}")
+    if origen == destino:
+        print("   Ya está en su destino.")
+        return
+    # Agrupar las estaciones seguidas de una misma línea en un solo paso
+    pasos = []                                          # cada paso: [línea, desde, hasta, estaciones]
+    for i in range(1, len(camino)):
+        estacion, linea = camino[i]
+        if pasos and pasos[-1][0] == linea:
+            pasos[-1][2] = estacion
+            pasos[-1][3] += 1
+        else:
+            pasos.append([linea, camino[i - 1][0], estacion, 1])
+    # Escribir cada paso como una instrucción
+    anterior = None
+    for linea, desde, hasta, cantidad in pasos:
+        color = COLOR_LINEA[linea]
+        if linea == "C":
+            print(f"   🚶 {color}Salga de {desde} y camine 0.8 km hasta la estación {hasta}{FIN}")
+        else:
+            if anterior in ("A", "B"):
+                print(f"   🔄 Cambie de tren en {desde} (transbordo)")
+            print(f"   🚇 {color}Tome la Línea {linea} en {desde} y bájese en {hasta}{FIN}"
+                  f" ({cantidad} {'estaciones' if cantidad > 1 else 'estación'})")
+        anterior = linea
+    print(f"\n   {NEGRITA}⏱  Tiempo estimado del viaje: {minutos:.1f} minutos{FIN}")
+
+
+def mostrar_recomendaciones(camino):
+    sitios = [(e, ATRACTIVOS[e]) for e, _ in camino if e in ATRACTIVOS]
+    if sitios:
+        print(f"\n{NEGRITA}⭐ Sitios para visitar en su ruta:{FIN}")
+        for estacion, sitio in sitios:
+            print(f"   {VERDE}• {sitio} (estación {estacion}){FIN}")
+
+
+if __name__ == "__main__":
+    main()
