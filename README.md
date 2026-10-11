@@ -61,3 +61,44 @@ El programa pregunta el origen, el destino, el perfil del viajero, si es hora pi
 
 - Minutos por tramo estimados a partir del tiempo total de recorrido de cada línea (A: 40 min, B: 15.5 min).
 - El transbordo de 4 min y los porcentajes de hora pico y lluvia son supuestos del modelo.
+
+---
+
+# Actividad: aprendizaje automático
+
+Con el sistema de `ruta_metro.py` se creó un **dataset de viajes** (qué ruta tomar, cuántas paradas, transbordos y minutos, según la lluvia, la hora pico y el perfil). Con ese dataset se entrenaron 4 modelos:
+
+| Carpeta | Tipo | Modelo | Pregunta que responde |
+|---|---|---|---|
+| [`datos/`](datos/README.md) | Dataset | — | 3.264 viajes generados con `ruta_metro.py` |
+| [`aprendizaje_supervisado/`](aprendizaje_supervisado/README.md) | Supervisado (regresión) | Regresión lineal | ¿Cuántos minutos tarda el viaje? |
+| | Supervisado (clasificación) | Árbol de decisión | ¿Llegaré a tiempo? |
+| [`aprendizaje_no_supervisado/`](aprendizaje_no_supervisado/README.md) | No supervisado (agrupamiento) | K-Means | ¿Qué tipos de viaje existen? |
+| | No supervisado (agrupamiento) | Agrupamiento jerárquico | ¿Qué tipos de viaje existen? (dendrograma) |
+
+Las fuentes de datos están descritas en el README de cada carpeta.
+
+## Instalación de librerías
+
+```bash
+pip install -r requirements.txt
+```
+
+## Ejecución
+
+```bash
+cd datos
+python generar_dataset.py
+```
+
+```bash
+cd aprendizaje_supervisado
+python regresion_lineal.py
+python arbol_decision.py
+```
+
+```bash
+cd aprendizaje_no_supervisado
+python kmeans.py
+python jerarquico.py
+```
